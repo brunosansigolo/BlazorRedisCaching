@@ -1,0 +1,77 @@
+﻿@page "/fetchdata"
+
+@using BlazorRedisCaching.Data
+@using BlazorRedisCaching.Extensions
+@inject WeatherForecastService ForecastService
+@inject IDistributedCache Cache
+
+<h1>Weather forecast</h1>
+
+<p>This component demonstrates fetching data from a service.</p>
+
+<button class="btn btn-primary" @onclick="LoadForecast">Load Forecast</button>
+
+@if (_forecasts is null && _loadLocation == "")
+{
+    <p><em>Click the button to load the forecast</em></p>
+}
+else if (_forecasts is null)
+{
+    <p><em>Loading...</em></p>
+}
+else
+{
+    <div class="h3 @_isCacheData">@_loadLocation</div>
+    <table class="table">
+        <thead>
+            <tr>
+                <th>Date</th>
+                <th>Temp. (C)</th>
+                <th>Temp. (F)</th>
+                <th>Summary</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var forecast in _forecasts)
+            {
+                <tr>
+                    <td>@forecast.Date.ToShortDateString()</td>
+                    <td>@forecast.TemperatureC</td>
+                    <td>@forecast.TemperatureF</td>
+                    <td>@forecast.Summary</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+}
+
+@code {
+    private WeatherForecast[] _forecasts;
+    private string _loadLocation = "";
+    private string _isCacheData = "";
+
+    private async Task LoadForecast()
+    {
+        _forecasts = null;
+        _loadLocation = null;
+
+        string recordKey = "WeatherForecast_" + DateTime.Now.ToString("yyyyMMdd_hhmm");
+
+        _forecasts = await Cache.GetRecordAsync<WeatherForecast[]>(recordKey);
+
+        if (_forecasts is null)
+        {
+            _forecasts = await ForecastService.GetForecastAsync(DateTime.Now);
+
+            _loadLocation = $"Loaded from API at {DateTime.Now}";
+            _isCacheData = "";
+
+            await Cache.SetRecordAsync(recordKey, _forecasts);
+        }
+        else
+        {
+            _loadLocation = $"Loaded from the cache at {DateTime.Now}";
+            _isCacheData = "text-danger";
+        }
+    }
+}
